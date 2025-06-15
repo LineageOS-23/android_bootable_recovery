@@ -207,6 +207,25 @@ static bool ask_to_wipe_data(Device* device) {
   return (chosen_item == 1);
 }
 
+static bool ask_to_cancel_ota(Device* device) {
+  // clang-format off
+  std::vector<std::string> headers{
+    "Overwrite in-progress update?",
+    "An update may already be in progress. If you proceed, "
+    "the existing OS may not longer boot, and completing "
+    "an update via ADB will be required."
+  };
+  std::vector<std::string> items{
+    "Cancel",
+    "Continue",
+  };
+  // clang-format on
+  size_t chosen_item = device->GetUI()->ShowMenu(
+      headers, items, 0, true,
+      std::bind(&Device::HandleMenuKey, device, std::placeholders::_1, std::placeholders::_2));
+  return (chosen_item == 1);
+}
+
 static InstallResult apply_update_menu(Device* device, Device::BuiltinAction* reboot_action){
   RecoveryUI* ui = device->GetUI();
   std::vector<std::string> headers{ "Apply update" };
@@ -572,6 +591,12 @@ change_menu:
       case Device::APPLY_UPDATE:
       case Device::ENTER_RESCUE: {
         save_current_log = true;
+
+        if (!IsCancelUpdateSafe(device)) {
+          if (!ask_to_cancel_ota(device)) {
+            break;
+          }
+        }
 
         update_in_progress = true;
         WriteUpdateInProgress();
